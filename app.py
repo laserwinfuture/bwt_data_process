@@ -15,9 +15,20 @@ st.set_page_config(
     layout="wide"
 )
 
-# 设置中文字体
-plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial Unicode MS', 'sans-serif']
+# Update font configuration
+plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
+
+# Add font fallback handling
+def get_available_font():
+    available_fonts = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS']
+    for font in available_fonts:
+        try:
+            FontProperties(fname=None, name=font)
+            return font
+        except:
+            continue
+    return 'DejaVu Sans'
 
 def process_m2_data(file_content):
     """处理M2数据并生成图表"""
@@ -38,6 +49,11 @@ def process_m2_data(file_content):
             ratio.append(y_val / x_val)
     
     # 创建图形
+    # Update font settings in the plot
+    font_name = get_available_font()
+    plt.rcParams['font.sans-serif'] = [font_name] + plt.rcParams['font.sans-serif']
+    
+    # Create figure with font settings
     fig, ax1 = plt.subplots(figsize=(10, 6))
     
     # 绘制曲线
@@ -118,4 +134,4 @@ def main():
                 st.write("请确保上传的文件格式正确，包含'Frame (Quantitative)'部分")
 
 if __name__ == "__main__":
-    main() 
+    main()
