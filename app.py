@@ -11,6 +11,7 @@ from datetime import datetime
 from openpyxl import load_workbook, Workbook
 from openpyxl.styles import Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from decimal import Decimal, ROUND_HALF_UP
 
 __version__ = '0.1'
 
@@ -165,6 +166,97 @@ def process_summary_data(template_file, data_files):
         st.error(f"处理文件时出错：{str(e)}")
         return None, 0
 
+def round_to_decimal(value: str, decimal_places: int) -> float:
+    """
+    将字符串数值四舍五入到指定小数位数
+    Args:
+        value (str): 需要四舍五入的字符串数值
+        decimal_places (int): 四舍五入后保留的小数位数
+    Returns:
+        float: 四舍五入后的浮点数
+    """
+    format_str = '0.' + '0' * decimal_places
+    return float(Decimal(value).quantize(Decimal(format_str), rounding=ROUND_HALF_UP))
+
+def process_product_data(template_file, data_files):
+    """处理产成品数据汇总"""
+    try:
+        # 读取模板文件
+        wb = load_workbook(template_file)
+        ws = wb.active
+        
+        # 获取第一行的数据作为映射表
+        first_row_data = {}
+        for col in range(1, ws.max_column + 1):
+            col_letter = get_column_letter(col)
+            cell_value = ws.cell(row=1, column=col).value
+            if cell_value is not None:
+                first_row_data[col_letter] = cell_value
+        
+        # 从最后一行开始处理数据文件
+        row = ws.max_row + 1
+        processed_files_count = 0
+        
+        for data_file in data_files:
+            load_wb = load_workbook(data_file, data_only=True)
+            load_sheet = load_wb.active
+            
+            # 写入序号和文件名
+            ws[f'A{row}'] = row-1
+            ws[f'B{row}'] = os.path.basename(data_file.name)
+            
+            # 根据映射表处理数据
+            for target_cell, source_cell in first_row_data.items():
+                if source_cell is not None:
+                    source_value = load_sheet[source_cell].value
+                    cell = ws[f'{target_cell}{row}']
+                    cell.value = source_value
+                    
+                    # 如果是日期类型，设置日期格式
+                    if isinstance(source_value, datetime):
+                        cell.number_format = 'yyyy/mm/dd'
+                    
+                    # 特殊处理AR列（功率范围）
+                    if target_cell == 'AR':
+                        var1, var2 = source_value.split('-')
+                        var1 = int(var1[:-3])
+                        var2 = int(var2[:-5])
+                        ws[f'AR{row}'] = var1
+                        ws[f'AS{row}'] = var2
+                    
+                    # 特殊处理AT列（功率计算）
+                    elif target_cell == 'AT':
+                        power = ws[f'AT{row}'].value
+                        ws[f'AU{row}'] = round_to_decimal(power / var1 * 1000, 0)
+            
+            processed_files_count += 1
+            row += 1
+            load_wb.close()
+        
+        # 添加边框
+        thin_border = Border(
+            left=Side(style='thin', color='000000'),
+            right=Side(style='thin', color='000000'),
+            top=Side(style='thin', color='000000'),
+            bottom=Side(style='thin', color='000000')
+        )
+        
+        # 只为新添加的行添加边框
+        for row in range(ws.max_row - processed_files_count + 1, ws.max_row + 1):
+            for col in range(1, ws.max_column + 1):
+                ws.cell(row=row, column=col).border = thin_border
+        
+        # 保存处理后的文件
+        output_buffer = io.BytesIO()
+        wb.save(output_buffer)
+        output_buffer.seek(0)
+        
+        return output_buffer, processed_files_count
+        
+    except Exception as e:
+        st.error(f"处理文件时出错：{str(e)}")
+        return None, 0
+
 def main():
     # 侧边栏
     with st.sidebar:
@@ -196,6 +288,8 @@ def main():
             st.session_state.selected_function = "M2数据二次处理"
         if st.button("纠正预防措施汇总", use_container_width=True):
             st.session_state.selected_function = "纠正预防措施汇总"
+        if st.button("产成品数据汇总", use_container_width=True):
+            st.session_state.selected_function = "产成品数据汇总"
         
         # 初始化选择的功能
         if 'selected_function' not in st.session_state:
@@ -230,7 +324,7 @@ def main():
             except Exception as e:
                 st.error(f"处理文件时出错：{str(e)}")
                 st.write("请确保上传的文件格式正确，包含'Frame (Quantitative)'部分")
-
+    
     elif st.session_state.selected_function == "纠正预防措施汇总":
         st.title("纠正预防措施汇总")
         
@@ -264,6 +358,44 @@ def main():
                             label="下载汇总文件",
                             data=output_buffer,
                             file_name="纠正预防措施汇总表.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+                    else:
+                        st.error("处理失败，请检查文件格式是否正确")
+    
+    elif st.session_state.selected_function == "产成品数据汇总":
+        st.title("产成品数据汇总")
+        
+        # 模板文件上传
+        st.subheader("1. 上传模板文件")
+        template_file = st.file_uploader("请上传模板文件（Excel格式）", type=['xlsx'], key="product_template")
+        
+        # 数据文件上传
+        st.subheader("2. 上传需要汇总的文件")
+        data_files = st.file_uploader("请上传需要汇总的文件（Excel格式）", type=['xlsx'], accept_multiple_files=True, key="product_data")
+        
+        if template_file and data_files:
+            if st.button("开始处理"):
+                with st.spinner("正在处理文件..."):
+                    start_time = time.time()
+                    
+                    # 处理数据
+                    output_buffer, processed_count = process_product_data(template_file, data_files)
+                    
+                    if output_buffer:
+                        # 显示处理结果
+                        st.subheader("3. 处理结果")
+                        st.success(f"成功处理 {processed_count} 个文件")
+                        
+                        # 显示处理时间
+                        elapsed_time = time.time() - start_time
+                        st.info(f"处理用时: {elapsed_time:.2f} 秒")
+                        
+                        # 提供下载按钮
+                        st.download_button(
+                            label="下载汇总文件",
+                            data=output_buffer,
+                            file_name="产成品数据汇总表.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
                     else:
