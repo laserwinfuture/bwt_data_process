@@ -3,12 +3,43 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import io
 import numpy as np
+import platform
+import matplotlib.font_manager as fm
 
 __version__ = '0.1'
 
 # 设置中文字体
-plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial Unicode MS', 'sans-serif']  # 用来正常显示中文
-plt.rcParams['axes.unicode_minus'] = False  # 正常显示负号
+#plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial Unicode MS', 'sans-serif']  # 用来正常显示中文
+#plt.rcParams['axes.unicode_minus'] = False  # 正常显示负号
+
+
+# 跨平台字体设置函数
+def setup_chinese_font():
+    # 不同平台的常用中文字体
+    if platform.system() == 'Windows':
+        font_list = ['SimHei', 'Microsoft YaHei', 'SimSun']
+    elif platform.system() == 'Darwin':  # macOS
+        font_list = ['PingFang SC', 'Heiti SC', 'STHeiti']
+    else:  # Linux
+        font_list = ['WenQuanYi Micro Hei', 'Noto Sans CJK SC', 'DejaVu Sans']
+    
+    # 获取系统可用字体
+    available_fonts = [f.name for f in fm.fontManager.ttflist]
+    
+    # 查找第一个可用的中文字体
+    for font in font_list:
+        if font in available_fonts:
+            plt.rcParams['font.sans-serif'] = [font, 'DejaVu Sans', 'Arial Unicode MS']
+            plt.rcParams['axes.unicode_minus'] = False
+            return font
+    
+    # 如果没有找到中文字体，使用默认设置
+    plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial Unicode MS']
+    plt.rcParams['axes.unicode_minus'] = False
+    return 'DejaVu Sans'
+
+# 在模块加载时设置字体
+setup_chinese_font()
 
 
 
