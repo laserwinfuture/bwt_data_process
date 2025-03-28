@@ -76,7 +76,7 @@ def process_m2_data(file_content):
     ax1.plot(df.iloc[:, 2], df.iloc[:, 1], 'b-', label='Beam Width Y (μm)')
     
     # 设置第一个Y轴的标签
-    ax1.set_title('M2聚焦光斑分析', fontsize=14)
+    ax1.set_title('M2 foucs analysis', fontsize=14)
     ax1.set_xlabel('Z Location (mm)', fontsize=12)
     ax1.set_ylabel('Beam Width (μm)', fontsize=12)
     ax1.legend(loc='upper left', fontsize=10)
@@ -84,17 +84,17 @@ def process_m2_data(file_content):
     
     # 创建第二个Y轴用于比值
     ax2 = ax1.twinx()
-    ax2.plot(df.iloc[:, 2], ratio, 'g--', label='光斑圆度')
+    ax2.plot(df.iloc[:, 2], ratio, 'g--', label='beam roundness')
     
     # 添加合格标准线
-    standard_line = ax2.axhline(y=0.9, color='orange', linestyle='-', linewidth=2, alpha=0.7, label='合格标准(0.9)')
+    standard_line = ax2.axhline(y=0.9, color='orange', linestyle='-', linewidth=2, alpha=0.7, label='Qualification criteria(0.9)')
     
     # 添加合格区域填充
     x_range = df.iloc[:, 2]
-    ax2.fill_between(x_range, 0.9, 1.0, color='lightgreen', alpha=0.3, label='合格区域')
-    ax2.fill_between(x_range, 0.85, 0.9, color='pink', alpha=0.3, label='不合格区域')
+    ax2.fill_between(x_range, 0.9, 1.0, color='lightgreen', alpha=0.3, label='qualified area')
+    ax2.fill_between(x_range, 0.85, 0.9, color='pink', alpha=0.3, label='unqualified area')
     
-    ax2.set_ylabel('聚焦光斑圆度', color='g', fontsize=12)
+    ax2.set_ylabel('beam roundness(after focus)', color='g', fontsize=12)
     ax2.tick_params(axis='y', colors='g')
     ax2.set_ylim(0.85, 1.0)
     ax2.legend(loc='upper right', fontsize=10)
