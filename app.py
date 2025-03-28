@@ -5,6 +5,9 @@ import io
 import numpy as np
 from matplotlib.font_manager import FontProperties
 
+
+__version__ = '0.1'
+
 # 设置页面配置
 st.set_page_config(
     page_title="M2数据分析工具",
