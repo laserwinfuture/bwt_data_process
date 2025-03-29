@@ -174,7 +174,7 @@ def process_summary_data(template_file, data_files):
                 first_row_data[col_letter] = cell_value
         
         # 从第5行开始处理数据文件
-        row = 5
+        row = ws.max_row + 1
         processed_files_count = 0
         
         for data_file in data_files:
@@ -182,7 +182,7 @@ def process_summary_data(template_file, data_files):
             load_sheet = load_wb.active
             
             # 写入序号和文件名
-            ws[f'A{row}'] = row-4
+            ws[f'A{row}'] = row-5
             ws[f'B{row}'] = os.path.basename(data_file.name)
             
             # 根据映射表处理数据
