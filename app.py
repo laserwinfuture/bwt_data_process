@@ -12,12 +12,47 @@ from openpyxl import load_workbook, Workbook
 from openpyxl.styles import Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from decimal import Decimal, ROUND_HALF_UP
+import tempfile
+import platform
+
 
 __version__ = '0.1'
 
 # 设置中文字体
 #plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial Unicode MS', 'sans-serif']  # 用来正常显示中文
 #plt.rcParams['axes.unicode_minus'] = False  # 正常显示负号
+
+
+def show_about_page():
+    """显示关于页面的信息"""
+    st.title("关于")
+    st.write("这是一个数据分析工具，以下是系统信息：")
+    
+    # 获取操作系统名称
+    os_name = platform.system()
+    st.write(f"**操作系统名称 (platform.system()):** {os_name}")
+
+    # 获取操作系统版本
+    os_release = platform.release()
+    st.write(f"**操作系统发行版本 (platform.release()):** {os_release}")
+
+    # 获取更详细的操作系统版本信息
+    os_version = platform.version()
+    st.write(f"**操作系统详细版本 (platform.version()):** {os_version}")
+
+    # 获取平台架构 (例如 'x86_64', 'i386')
+    machine_arch = platform.machine()
+    st.write(f"**机器架构 (platform.machine()):** {machine_arch}")
+
+    # 获取更全面的平台信息字符串
+    platform_info = platform.platform()
+    st.write(f"**完整平台信息 (platform.platform()):**")
+    st.code(platform_info, language='text')
+
+    # 获取 uname 信息 (类似 Linux 命令 `uname -a`)
+    uname_info = platform.uname()
+    st.write(f"**uname 信息 (platform.uname()):**")
+    st.code(str(uname_info), language='text')
 
 
 # 跨平台字体设置函数
@@ -56,6 +91,13 @@ st.set_page_config(
     page_icon="��",
     layout="wide"
 )
+
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+def check_file_size(file):
+    if file.size > MAX_FILE_SIZE:
+        st.error(f"文件大小超过限制（最大50MB）")
+        return False
+    return True
 
 def process_m2_data(file_content):
     """处理M2数据并生成图表"""
@@ -289,8 +331,11 @@ def main():
         if st.button("纠正预防措施汇总", use_container_width=True):
             st.session_state.selected_function = "纠正预防措施汇总"
         if st.button("产成品数据汇总", use_container_width=True):
-            st.session_state.selected_function = "产成品数据汇总"
-        
+            st.session_state.selected_function = "产成品数据汇总"        
+        # 添加关于按钮
+        if st.button("关于", use_container_width=True):
+            st.session_state.selected_function = "关于"
+
         # 初始化选择的功能
         if 'selected_function' not in st.session_state:
             st.session_state.selected_function = "M2数据二次处理"
@@ -305,6 +350,10 @@ def main():
         
         if uploaded_file is not None:
             try:
+                # 检查文件大小
+                if not check_file_size(uploaded_file):
+                    return
+                
                 # 读取文件内容
                 file_content = uploaded_file.getvalue().decode('utf-8')
                 
@@ -340,28 +389,31 @@ def main():
             if st.button("开始处理"):
                 with st.spinner("正在处理文件..."):
                     start_time = time.time()
-                    
-                    # 处理数据
-                    output_buffer, processed_count = process_summary_data(template_file, data_files)
-                    
-                    if output_buffer:
-                        # 显示处理结果
-                        st.subheader("3. 处理结果")
-                        st.success(f"成功处理 {processed_count} 个文件")
+
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        # 处理文件
+                        # 临时目录会在with块结束时自动删除
+                        output_buffer, processed_count = process_summary_data(template_file, data_files)
                         
-                        # 显示处理时间
-                        elapsed_time = time.time() - start_time
-                        st.info(f"处理用时: {elapsed_time:.2f} 秒")
-                        
-                        # 提供下载按钮
-                        st.download_button(
-                            label="下载汇总文件",
-                            data=output_buffer,
-                            file_name="纠正预防措施汇总表.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
-                    else:
-                        st.error("处理失败，请检查文件格式是否正确")
+                        if output_buffer:
+                            # 显示处理结果
+                            st.subheader("3. 处理结果")
+                            st.success(f"成功处理 {processed_count} 个文件")
+                            
+                            # 显示处理时间
+                            elapsed_time = time.time() - start_time
+                            st.info(f"处理用时: {elapsed_time:.2f} 秒")
+                            
+                            # 提供下载按钮
+                            st.download_button(
+                                label="下载汇总文件",
+                                data=output_buffer,
+                                file_name="纠正预防措施汇总表.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            )
+                        else:
+                            st.error("处理失败，请检查文件格式是否正确")                
+
     
     elif st.session_state.selected_function == "产成品数据汇总":
         st.title("产成品数据汇总")
@@ -379,27 +431,39 @@ def main():
                 with st.spinner("正在处理文件..."):
                     start_time = time.time()
                     
-                    # 处理数据
-                    output_buffer, processed_count = process_product_data(template_file, data_files)
-                    
-                    if output_buffer:
-                        # 显示处理结果
-                        st.subheader("3. 处理结果")
-                        st.success(f"成功处理 {processed_count} 个文件")
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        # 处理文件
+                        # 临时目录会在with块结束时自动删除
+                        output_buffer, processed_count = process_product_data(template_file, data_files)
                         
-                        # 显示处理时间
-                        elapsed_time = time.time() - start_time
-                        st.info(f"处理用时: {elapsed_time:.2f} 秒")
-                        
-                        # 提供下载按钮
-                        st.download_button(
-                            label="下载汇总文件",
-                            data=output_buffer,
-                            file_name="产成品数据汇总表.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
-                    else:
-                        st.error("处理失败，请检查文件格式是否正确")
+                        if output_buffer:
+                            # 显示处理结果
+                            st.subheader("3. 处理结果")
+                            st.success(f"成功处理 {processed_count} 个文件")
+                            
+                            # 显示处理时间
+                            elapsed_time = time.time() - start_time
+                            st.info(f"处理用时: {elapsed_time:.2f} 秒")
+                            
+                            # 提供下载按钮
+                            st.download_button(
+                                label="下载汇总文件",
+                                data=output_buffer,
+                                file_name="产成品数据汇总表.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            )
+                        else:
+                            st.error("处理失败，请检查文件格式是否正确")
+
+        # 添加关于按钮
+    elif st.session_state.selected_function == "关于":  
+        show_about_page()
+
+
+
+
+
+
 
 if __name__ == "__main__":
     main()
