@@ -102,8 +102,19 @@ def check_file_size(file):
 def process_m2_data(file_content):
     """处理M2数据并生成图表"""
     # 找到Frame (Quantitative)部分
-    frame_part = file_content.split('Frame (Quantitative)')[1].strip()
-    
+    # frame_part = file_content.split('Frame (Quantitative)')[1].strip()
+    # 查找包含"Frame"的部分
+    frame_markers = ['Frame (Quantitative)', 'Frame Results']
+    frame_part = None
+
+    for marker in frame_markers:
+        if marker in file_content:
+            frame_part = file_content.split(marker)[1].strip()
+            break
+
+    if frame_part is None:
+        raise ValueError("未找到Frame数据部分，请检查文件格式")
+
     # 使用pandas读取这部分数据
     df = pd.read_csv(io.StringIO(frame_part))
     
