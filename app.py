@@ -15,8 +15,13 @@ from decimal import Decimal, ROUND_HALF_UP
 import tempfile
 import platform
 
+import plotly.express as px
+import plotly.graph_objects as go
 
-__version__ = '0.1'
+
+__version__ = '0.2'
+__updatedate__ = '2025.04.04'
+
 
 # 设置中文字体
 #plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans', 'Arial Unicode MS', 'sans-serif']  # 用来正常显示中文
@@ -310,28 +315,274 @@ def process_product_data(template_file, data_files):
         st.error(f"处理文件时出错：{str(e)}")
         return None, 0
 
+
+
+###### 日志相关处理函数 #################
+### 报警日志 ####
+def process_alarm_log(df):
+    """处理报警日志数据"""
+    try:
+        # 确保时间列是datetime类型
+        df['time'] = pd.to_datetime(df['time'], errors='coerce', format='mixed')
+        df = df.dropna(subset=['time'])
+        
+        # 让用户选择报警类型列
+        alarm_column = st.selectbox("选择报警类型列", df.columns)
+        
+        # 时间范围选择
+        min_time = df['time'].min()
+        max_time = df['time'].max()
+       
+        start_time = st.date_input("开始时间", min_time, key="alarm_start_time")
+        end_time = st.date_input("结束时间", max_time, key="alarm_end_time")
+
+        # 过滤数据
+        mask = (df['time'].dt.date >= start_time) & (df['time'].dt.date <= end_time)
+        filtered_df = df[mask]
+        
+        # 显示数据
+        st.dataframe(filtered_df)
+        
+        # 报警统计
+        st.subheader("报警统计")
+        alarm_counts = filtered_df[alarm_column].value_counts()
+        fig = px.bar(alarm_counts, title="报警类型分布")
+        fig.update_layout(
+            xaxis=dict(
+                tickmode='auto',
+                nticks=20,
+                tickangle=45,
+                tickformat='%Y-%m-%d %H:%M:%S'  # 时间格式
+            )
+        )
+        st.plotly_chart(fig)
+
+    except Exception as e:
+        st.error(f"处理报警日志时出错：{str(e)}")
+        st.write("请检查文件格式是否正确")
+
+
+def process_operate_log(df):
+    """处理操作日志数据"""
+    try:
+        # 确保时间列是datetime类型
+        df['time'] = pd.to_datetime(df['time'], errors='coerce', format='mixed')
+        df = df.dropna(subset=['time'])
+        
+        # 让用户选择操作类型列
+        operate_column = st.selectbox("选择操作类型列", df.columns)
+        
+        # 时间范围选择
+        min_time = df['time'].min()
+        max_time = df['time'].max()
+
+        start_time = st.date_input("开始时间", min_time, key="operate_start_time")
+        end_time = st.date_input("结束时间", max_time, key="operate_end_time")
+
+        # 过滤数据
+        mask = (df['time'].dt.date >= start_time) & (df['time'].dt.date <= end_time)
+        filtered_df = df[mask]
+        
+        # 显示数据
+        st.dataframe(filtered_df)
+        
+        # 操作类型统计
+        st.subheader("操作类型统计")
+        operate_counts = filtered_df[operate_column].value_counts()
+        fig = px.bar(operate_counts, title="操作类型分布")
+        fig.update_layout(
+            xaxis=dict(
+                tickmode='auto',
+                nticks=20,
+                tickangle=45,
+                tickformat='%Y-%m-%d %H:%M:%S'  # 时间格式
+            )
+        )
+        st.plotly_chart(fig)
+
+    except Exception as e:
+        st.error(f"处理操作日志时出错：{str(e)}")
+        st.write("请检查文件格式是否正确")
+
+
+
+def process_status_log(df):
+    """处理状态日志数据"""
+    try:
+        # 确保时间列是datetime类型
+        df['time'] = pd.to_datetime(df['time'], errors='coerce', format='mixed')
+        df = df.dropna(subset=['time'])
+        
+        # 时间范围选择
+        min_time = df['time'].min()
+        max_time = df['time'].max()
+        start_time = st.date_input("开始时间", min_time, key="status_start_time")
+        end_time = st.date_input("结束时间", max_time, key="status_end_time")
+        
+        # 过滤数据
+        mask = (df['time'].dt.date >= start_time) & (df['time'].dt.date <= end_time)
+        filtered_df = df[mask]
+        
+        # 参数选择
+        st.subheader("选择要显示的参数")
+        all_columns = [col for col in filtered_df.columns if col != 'time']  # 排除时间列
+        selected_columns = st.multiselect("选择参数", all_columns, default=all_columns[:5])
+        
+        if selected_columns:
+            # 显示数据
+            st.dataframe(filtered_df[['time'] + selected_columns])
+            
+            # 绘制选中的参数趋势图
+            st.subheader("参数趋势图")
+            fig = go.Figure()
+            for col in selected_columns:
+                # 将NaN值替换为0
+                y_values = filtered_df[col].fillna(0)
+                fig.add_trace(go.Scatter(
+                    x=filtered_df['time'], 
+                    y=y_values, 
+                    name=col,
+                    mode='markers',  # 只显示数据点
+                    marker=dict(size=6)  # 设置数据点大小
+                ))
+            fig.update_layout(
+                title="参数趋势图",
+                xaxis_title="时间",
+                yaxis_title="数值",
+                hovermode="x unified",
+                height=800,  # 增加图表高度
+                margin=dict(l=50, r=50, t=50, b=50),  # 调整边距
+                xaxis=dict(
+                    tickmode='auto',  # 自动设置刻度
+                    nticks=20,  # 增加刻度数量
+                    tickangle=45,  # 倾斜角度
+                    tickformat='%Y-%m-%d %H:%M:%S'  # 时间格式
+                )
+            )
+            st.plotly_chart(fig, use_container_width=True)  # 使用容器宽度
+    except Exception as e:
+        st.error(f"处理状态日志时出错：{str(e)}")
+        st.write("请检查文件格式是否正确")
+
+
+
+
+def show_log_analysis():
+    """显示日志分析页面"""
+    st.title("设备日志分析")
+    
+    # 创建标签页
+    tab1, tab2, tab3 = st.tabs(["报警日志", "操作日志", "状态日志"])
+    
+    with tab1:
+        st.subheader("报警日志分析")
+        alarm_file = st.file_uploader("上传报警日志文件", type=['xlsx'], key="alarm_log")
+        if alarm_file:
+            df_alarm = pd.read_excel(alarm_file)
+            process_alarm_log(df_alarm)
+    
+    with tab2:
+        st.subheader("操作日志分析")
+        operate_file = st.file_uploader("上传操作日志文件", type=['xlsx'], key="operate_log")
+        if operate_file:
+            df_operate = pd.read_excel(operate_file)
+            process_operate_log(df_operate)
+    
+    with tab3:
+        st.subheader("状态日志分析")
+        status_file = st.file_uploader("上传状态日志文件", type=['xlsx'], key="status_log")
+        if status_file:
+            df_status = pd.read_excel(status_file)
+            process_status_log(df_status)
+
+
+
+
 def main():
     # 侧边栏
     with st.sidebar:
         st.title("功能选择")
         
-        # 设置按钮样式
+        # 设置侧边栏和按钮样式
         st.markdown("""
             <style>
+            /* 调整侧边栏宽度 */
+            section[data-testid="stSidebar"] {
+                width: 200px;
+                background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
+                padding: 1rem;
+            }
+            
+            /* 按钮样式 */
             .stButton > button {
-                font-size: 3rem;
-                padding: 1.2rem;
-                margin: 0.8rem 0;
-                border-radius: 10px;
-                background-color: #7832E1;
+                font-size: 1.1rem;
+                padding: 0.7rem 1rem;
+                margin: 0.5rem 0;
+                border-radius: 12px;
+                background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
                 color: white;
                 border: none;
                 transition: all 0.3s ease;
+                width: 75%;
+                margin-left: 10%;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                position: relative;
+                overflow: hidden;
             }
+            
+            .stButton > button::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+                transition: 0.5s;
+            }
+            
             .stButton > button:hover {
-                background-color: #6B2BC7;
                 transform: translateY(-2px);
-                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                box-shadow: 0 4px 8px rgba(79, 70, 229, 0.3);
+            }
+            
+            .stButton > button:hover::before {
+                left: 100%;
+            }
+            
+            /* 标题样式 */
+            .sidebar-title {
+                font-size: 1.5rem;
+                margin-bottom: 1.5rem;
+                color: #1f1f1f;
+                text-align: center;
+                font-weight: 600;
+                background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+            
+            /* 作者信息样式 */
+            .author-info {
+                margin-top: 2rem;
+                padding-top: 1rem;
+                border-top: 1px solid rgba(0,0,0,0.1);
+                font-size: 0.9rem;
+                color: #666;
+                margin-left: 10%;
+                width: 75%;
+                text-align: center;
+            }
+            
+            .author-info p {
+                margin: 0.3rem 0;
+                opacity: 0.8;
+            }
+            
+            /* 选中按钮样式 */
+            .stButton > button:focus {
+                background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+                box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.3);
             }
             </style>
         """, unsafe_allow_html=True)
@@ -342,14 +593,26 @@ def main():
         if st.button("纠正预防措施汇总", use_container_width=True):
             st.session_state.selected_function = "纠正预防措施汇总"
         if st.button("产成品数据汇总", use_container_width=True):
-            st.session_state.selected_function = "产成品数据汇总"        
-        # 添加关于按钮
+            st.session_state.selected_function = "产成品数据汇总"      
+        if st.button("设备日志分析", use_container_width=True):
+            st.session_state.selected_function = "设备日志分析"
         if st.button("关于", use_container_width=True):
             st.session_state.selected_function = "关于"
 
         # 初始化选择的功能
         if 'selected_function' not in st.session_state:
             st.session_state.selected_function = "M2数据二次处理"
+            
+        # 添加作者信息和版本信息
+        st.markdown(f"""
+            <div class="author-info">
+                <p>版本: V{__version__}</p>
+                <p>日期: {__updatedate__}</p>
+                <p>作者: Dr.Shi</p>
+                <p>Email: 8582864@qq.com</p>
+                <p>© 2025 版权所有</p>
+            </div>
+        """, unsafe_allow_html=True)
     
     # 主页面
     if st.session_state.selected_function == "M2数据二次处理":
@@ -466,7 +729,15 @@ def main():
                         else:
                             st.error("处理失败，请检查文件格式是否正确")
 
-        # 添加关于按钮
+    # 日志分析页面
+    elif st.session_state.selected_function == "设备日志分析":
+        show_log_analysis()
+
+
+
+
+
+    # 添加关于按钮
     elif st.session_state.selected_function == "关于":  
         show_about_page()
 

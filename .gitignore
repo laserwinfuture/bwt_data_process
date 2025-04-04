@@ -19,5 +19,11 @@ __pycache__
  
 #忽略备份文件 
 *.back
+
+
+#忽略excel文件和csv文件
+*.csv
+*.xls
+*.xlsx
  
  
